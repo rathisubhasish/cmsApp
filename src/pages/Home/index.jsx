@@ -1,15 +1,8 @@
-
-import { Outlet, useNavigate } from "react-router-dom";
-import Sidebar from "../../common/SideBar/SideBar.jsx";
-import { useState } from "react";
-import { LuBox } from "react-icons/lu";
-import { useAuth } from "../context/AuthContext.jsx";
-import { AiOutlineMenu } from "react-icons/ai";
-
 export default function Home() {
-    return(
-        <div className="flex min-h-svh bg-white overflow-x-hidden">
-            <Sidebar setIsMobileOpen={setIsMobileOpen} isMobileOpen={isMobileOpen} />
+    return (
+        <div>
+            <h1 className="text-xl font-semibold text-text-primary">Dashboard</h1>
+            <p className="mt-1 text-sm text-text-secondary">Overview of your workspace</p>
         </div>
     )
 }
