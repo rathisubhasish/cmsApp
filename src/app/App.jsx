@@ -3,6 +3,10 @@ import '../App.css'
 import { AuthProvider } from '../context/AuthContext'
 import { ClientProvider } from '../context/ClientContext'
 import Login from "../pages/Login/login"
+import Home from "../pages/Home"
+import Client from "../pages/Client"
+import Proposal from "../pages/Proposal"
+import Settings from "../pages/Settings"
 import ProtectedRoute from '../routes/ProtectedRoutes'
 import HomeLayout from '../HomeLayout'
 
@@ -12,14 +16,15 @@ function App() {
       <AuthProvider>
         <ClientProvider>
           <Routes>
-             <Route element={<ProtectedRoute />}>
-             <Route element={<HomeLayout />}>
-              {/* <Route index element={<Dashboard />} /> */}
-             
-            </Route>
-          </Route>
-            <Route path="/" element={<Navigate to="/login" replace />} />
             <Route path="/login" element={<Login />} />
+            <Route path="/" element={<ProtectedRoute />}>
+              <Route element={<HomeLayout />}>
+                <Route index element={<Home />} />
+                <Route path="client" element={<Client />} />
+                <Route path="proposal" element={<Proposal />} />
+                <Route path="settings" element={<Settings />} />
+              </Route>
+            </Route>
           </Routes>
         </ClientProvider>
       </AuthProvider>

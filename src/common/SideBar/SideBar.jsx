@@ -74,7 +74,7 @@ export default function Sidebar({ isMobileOpen, setIsMobileOpen }) {
             </div>
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold text-text-primary">
-                Admin
+                Client
               </p>
               {email && (
                 <p className="max-w-[170px] truncate text-xs text-text-secondary">
