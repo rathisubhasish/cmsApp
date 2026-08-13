@@ -6,6 +6,7 @@ import Login from "../pages/Login/login"
 import Home from "../pages/Home"
 import Client from "../pages/Client"
 import Proposal from "../pages/Proposal"
+import Contract from "../pages/Contract"
 import Settings from "../pages/Settings"
 import ProtectedRoute from '../routes/ProtectedRoutes'
 import HomeLayout from '../HomeLayout'
@@ -22,6 +23,7 @@ function App() {
                 <Route index element={<Home />} />
                 <Route path="client" element={<Client />} />
                 <Route path="proposal" element={<Proposal />} />
+                <Route path="contract" element={<Contract />} />
                 <Route path="settings" element={<Settings />} />
               </Route>
             </Route>

@@ -33,6 +33,12 @@ const NAV_ITEMS = [
     end: false,
   },
   {
+    to: "contract",
+    label: "Contract",
+    icon: LuBuilding2,
+    end: false,
+  },
+  {
     to: "/settings",
     label: "Settings",
     icon: LuSettings,
