@@ -1,11 +1,23 @@
-import { useState } from "react";
-import { LuSearch, LuPlus, LuLayoutGrid, LuTable, LuEye } from "react-icons/lu";
+import { useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { LuSearch, LuPlus, LuLayoutGrid, LuTable, LuEye, LuPencil, LuTrash2, LuEllipsisVertical } from "react-icons/lu";
 import Button from "../../common/Button/Button";
+import SidePanel from "../../common/SidePanel/SidePanel";
 import Modal from "../../Modal";
 import { useAuth } from "../../context/AuthContext";
 import { useClients } from "../../hooks/useClients";
 
-const COLUMNS = ["Logo", "Name", "Legal Name", "Mobile", "Email", "Address", "City", "State", "Pincode", "Country", "Actions"];
+const COLUMNS = ["Logo", "Name", "Mobile", "Email", "Address", "City", "State", "Pincode", "Country", "Actions"];
+
+const DETAIL_FIELDS = [
+    { label: "PAN", key: "pan" },
+    { label: "GST", key: "gst" },
+    { label: "City", key: "city" },
+    { label: "State", key: "state" },
+    { label: "Pincode", key: "pincode" },
+    { label: "Country", key: "country" },
+    { label: "Address", key: "address", span: true },
+];
 
 const FORM = {
     name: "",
@@ -20,18 +32,99 @@ const FORM = {
     country: "",
 };
 
+function ClientActionsMenu({ client, onView, onEdit, onDelete, deleting }) {
+    const [open, setOpen] = useState(false);
+    const [coords, setCoords] = useState({ top: 0, left: 0 });
+    const btnRef = useRef(null);
+    const closeTimer = useRef(null);
+
+    const openMenu = () => {
+        clearTimeout(closeTimer.current);
+        const rect = btnRef.current.getBoundingClientRect();
+        setCoords({ top: rect.bottom + 4, left: rect.right - 128 });
+        setOpen(true);
+    };
+
+    const scheduleClose = () => {
+        closeTimer.current = setTimeout(() => setOpen(false), 150);
+    };
+
+    return (
+        <>
+            <button
+                ref={btnRef}
+                type="button"
+                aria-label="Client actions"
+                onMouseEnter={openMenu}
+                onMouseLeave={scheduleClose}
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-text-secondary hover:bg-primary-light hover:text-text-primary"
+            >
+                <LuEllipsisVertical className="h-4 w-4" />
+            </button>
+
+            {open &&
+                createPortal(
+                    <div
+                        style={{ position: "fixed", top: coords.top, left: coords.left, width: 128 }}
+                        onMouseEnter={openMenu}
+                        onMouseLeave={scheduleClose}
+                        className="z-50 flex flex-col overflow-hidden rounded-lg border border-border bg-surface shadow-card"
+                    >
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setOpen(false);
+                                onView(client);
+                            }}
+                            className="flex items-center gap-2 whitespace-nowrap px-3 py-2 text-xs font-medium text-text-primary hover:bg-primary-light"
+                        >
+                            <LuEye className="h-3.5 w-3.5" />
+                            View
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setOpen(false);
+                                onEdit(client);
+                            }}
+                            className="flex items-center gap-2 whitespace-nowrap border-t border-border px-3 py-2 text-xs font-medium text-text-primary hover:bg-primary-light"
+                        >
+                            <LuPencil className="h-3.5 w-3.5" />
+                            Edit
+                        </button>
+                        <button
+                            type="button"
+                            disabled={deleting}
+                            onClick={() => {
+                                setOpen(false);
+                                onDelete(client);
+                            }}
+                            className="flex items-center gap-2 whitespace-nowrap border-t border-border px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                            <LuTrash2 className="h-3.5 w-3.5" />
+                            {deleting ? "Deleting..." : "Delete"}
+                        </button>
+                    </div>,
+                    document.body
+                )}
+        </>
+    );
+}
+
 export default function Client() {
     const { user } = useAuth();
     const tenantId = user?.tenantId;
-    const { clients, saving, addClient } = useClients(tenantId);
+    const { clients, saving, addClient, updateClient, deleteClient, deletingId } = useClients(tenantId);
 
     const [search, setSearch] = useState("");
     const [viewMode, setViewMode] = useState("table");
     const [clientModal, setClientModal] = useState(false);
     const [clientForm, setClientForm] = useState(FORM);
+    const [editingClient, setEditingClient] = useState(null);
+    const [viewClient, setViewClient] = useState(null);
 
     const filteredClients = clients.filter((client) =>
-        client.name.toLowerCase().includes(search.toLowerCase())
+        (client.name ?? "").toLowerCase().includes(search.toLowerCase())
     );
 
     const handleFieldChange = (field) => (e) => {
@@ -41,12 +134,28 @@ export default function Client() {
     const closeClientModal = () => {
         setClientModal(false);
         setClientForm(FORM);
+        setEditingClient(null);
+    };
+
+    const openEditModal = (client) => {
+        setEditingClient(client);
+        setClientForm({ ...FORM, ...client });
+        setViewClient(null);
+        setClientModal(true);
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        const success = await addClient(clientForm);
+        const success = editingClient
+            ? await updateClient(editingClient.id, clientForm)
+            : await addClient(clientForm);
         if (success) closeClientModal();
+    };
+
+    const handleDelete = async (client) => {
+        if (!window.confirm(`Delete client "${client.name}"? This cannot be undone.`)) return;
+        if (viewClient?.id === client.id) setViewClient(null);
+        await deleteClient(client.id);
     };
 
     return (
@@ -99,29 +208,28 @@ export default function Client() {
                         </thead>
                         <tbody>
                             {filteredClients.map((client) => (
-                                <tr key={client.name} className="border-b border-border last:border-b-0">
+                                <tr key={client.id} className="border-b border-border last:border-b-0">
                                     <td className="px-4 py-3">
                                         <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-light text-sm font-semibold text-primary-text">
-                                            {client.name.charAt(0)}
+                                            {(client.name ?? "?").charAt(0)}
                                         </div>
                                     </td>
-                                    <td className="whitespace-nowrap px-4 py-3 text-text-primary">{client.name}</td>
-                                    <td className="whitespace-nowrap px-4 py-3 text-text-secondary">{client.legalName}</td>
-                                    <td className="whitespace-nowrap px-4 py-3 text-text-secondary">{client.mobile}</td>
-                                    <td className="whitespace-nowrap px-4 py-3 text-text-secondary">{client.email}</td>
-                                    <td className="whitespace-nowrap px-4 py-3 text-text-secondary">{client.address}</td>
-                                    <td className="whitespace-nowrap px-4 py-3 text-text-secondary">{client.city}</td>
-                                    <td className="whitespace-nowrap px-4 py-3 text-text-secondary">{client.state}</td>
-                                    <td className="whitespace-nowrap px-4 py-3 text-text-secondary">{client.pincode}</td>
-                                    <td className="whitespace-nowrap px-4 py-3 text-text-secondary">{client.country}</td>
+                                    <td className="whitespace-nowrap px-4 py-3 text-text-primary">{client.name || "-"}</td>
+                                    <td className="whitespace-nowrap px-4 py-3 text-text-secondary">{client.mobile || "-"}</td>
+                                    <td className="whitespace-nowrap px-4 py-3 text-text-secondary">{client.email || "-"}</td>
+                                    <td className="whitespace-nowrap px-4 py-3 text-text-secondary">{client.address || "-"}</td>
+                                    <td className="whitespace-nowrap px-4 py-3 text-text-secondary">{client.city || "-"}</td>
+                                    <td className="whitespace-nowrap px-4 py-3 text-text-secondary">{client.state || "-"}</td>
+                                    <td className="whitespace-nowrap px-4 py-3 text-text-secondary">{client.pincode || "-"}</td>
+                                    <td className="whitespace-nowrap px-4 py-3 text-text-secondary">{client.country || "-"}</td>
                                     <td className="whitespace-nowrap px-4 py-3">
-                                        <button
-                                            type="button"
-                                            className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-primary hover:bg-primary-light"
-                                        >
-                                            <LuEye className="h-3.5 w-3.5" />
-                                            View
-                                        </button>
+                                        <ClientActionsMenu
+                                            client={client}
+                                            onView={setViewClient}
+                                            onEdit={openEditModal}
+                                            onDelete={handleDelete}
+                                            deleting={deletingId === client.id}
+                                        />
                                     </td>
                                 </tr>
                             ))}
@@ -132,33 +240,36 @@ export default function Client() {
                 <div className="mt-6 grid grid-cols-[repeat(auto-fit,minmax(260px,1fr))] gap-4">
                     {filteredClients.map((client) => (
                         <div
-                            key={client.name}
+                            key={client.id}
                             className="rounded-xl border border-border bg-surface p-5"
                         >
                             <div className="flex items-center gap-3">
                                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-light text-sm font-semibold text-primary-text">
-                                    {client.name.charAt(0)}
+                                    {(client.name ?? "?").charAt(0)}
                                 </div>
                                 <div className="min-w-0">
-                                    <p className="truncate font-semibold text-text-primary">{client.name}</p>
-                                    <p className="truncate text-sm text-text-secondary">{client.email}</p>
+                                    <p className="truncate font-semibold text-text-primary">{client.name || "-"}</p>
+                                    <p className="truncate text-sm text-text-secondary">{client.email || "-"}</p>
                                 </div>
                             </div>
 
                             <div className="mt-4 space-y-1 text-sm">
                                 <p>
-                                    <span className="font-medium text-primary-text">Legal Name</span>{" "}
-                                    <span className="text-text-secondary">- {client.legalName}</span>
-                                </p>
-                                <p>
                                     <span className="font-medium text-primary-text">City</span>{" "}
-                                    <span className="text-text-secondary">- {client.city}</span>
+                                    <span className="text-text-secondary">- {client.city || "-"}</span>
                                 </p>
                             </div>
 
-                            <p className="mt-4 border-t border-border pt-3 text-right text-xs text-text-secondary">
-                                {client.joinedAgo}
-                            </p>
+                            <div className="mt-4 flex items-center justify-between border-t border-border pt-3">
+                                <span className="text-xs text-text-secondary">{client.joinedAgo || "-"}</span>
+                                <ClientActionsMenu
+                                    client={client}
+                                    onView={setViewClient}
+                                    onEdit={openEditModal}
+                                    onDelete={handleDelete}
+                                    deleting={deletingId === client.id}
+                                />
+                            </div>
                         </div>
                     ))}
                 </div>
@@ -166,7 +277,7 @@ export default function Client() {
             {
                 clientModal &&
                 (
-                    <Modal title="Add Client" onClose={closeClientModal} width={640}>
+                    <Modal title={editingClient ? "Edit Client" : "Add Client"} onClose={closeClientModal} width={640}>
                         <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-4">
                             <div className="col-span-2">
                                 <label className="mb-1 block text-sm font-medium text-text-primary">Name</label>
@@ -285,13 +396,60 @@ export default function Client() {
                                     Cancel
                                 </button>
                                 <Button type="submit" className="!w-auto px-4" loading={saving}>
-                                    Save
+                                    {editingClient ? "Update" : "Save"}
                                 </Button>
                             </div>
                         </form>
                     </Modal>
                 )
             }
+
+            <SidePanel
+                open={!!viewClient}
+                title={viewClient?.name || "Client"}
+                subtitle={viewClient?.email || ""}
+                onClose={() => setViewClient(null)}
+                headerActions={
+                    viewClient && (
+                        <button
+                            type="button"
+                            onClick={() => openEditModal(viewClient)}
+                            className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-primary hover:bg-primary-light"
+                        >
+                            <LuPencil className="h-3.5 w-3.5" />
+                            Edit
+                        </button>
+                    )
+                }
+            >
+                {viewClient && (
+                    <div className="space-y-6">
+                        <div>
+                            <h3 className="mb-2 text-sm font-semibold text-text-primary">Contact Information</h3>
+                            <div className="rounded-xl bg-primary-light p-4">
+                                <div className="flex items-center justify-between gap-3">
+                                    <span className="font-semibold text-text-primary">{viewClient.name || "-"}</span>
+                                    <span className="whitespace-nowrap text-xs font-medium text-primary-text">ID: {viewClient.id}</span>
+                                </div>
+                                <p className="mt-2 text-sm text-text-secondary">Email : {viewClient.email || "-"}</p>
+                                <p className="text-sm text-text-secondary">Mobile : {viewClient.mobile || "-"}</p>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h3 className="mb-3 text-sm font-semibold text-text-primary">Details</h3>
+                            <div className="grid grid-cols-2 gap-x-4 gap-y-4">
+                                {DETAIL_FIELDS.map(({ label, key, span }) => (
+                                    <div key={key} className={span ? "col-span-2" : undefined}>
+                                        <p className="text-xs text-text-secondary">{label}</p>
+                                        <p className="mt-0.5 text-sm font-medium text-text-primary">{viewClient[key] || "-"}</p>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </SidePanel>
         </div>
     );
 }

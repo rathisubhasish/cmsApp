@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
-import { get, post } from "../network";
+import { get, post, put, del } from "../network";
 
 export function useClients(tenantId) {
     const [clients, setClients] = useState([]);
     const [saving, setSaving] = useState(false);
+    const [deletingId, setDeletingId] = useState(null);
 
     useEffect(() => {
         if (!tenantId) return;
@@ -12,8 +13,9 @@ export function useClients(tenantId) {
 
         (async () => {
             try {
-                const { data } = await get(`/tenant/${tenantId}/client`);
-                if (!cancelled) setClients(data);
+                const { data } = await get(`/tenant/client`);
+                const list = Array.isArray(data) ? data : data?.data ?? data?.content ?? [];
+                if (!cancelled) setClients(list);
             } catch (error) {
                 console.error("Failed to fetch clients:", error);
             }
@@ -27,8 +29,9 @@ export function useClients(tenantId) {
     const addClient = useCallback(async (payload) => {
         setSaving(true);
         try {
-            const { data } = await post(`/tenant/${tenantId}/client`, payload);
-            setClients((prev) => [...prev, data]);
+            const { data } = await post(`/tenant/client`, payload);
+            const newClient = data?.data ?? data;
+            setClients((prev) => [...prev, newClient]);
             return true;
         } catch (error) {
             console.error("Failed to create client:", error);
@@ -38,5 +41,34 @@ export function useClients(tenantId) {
         }
     }, [tenantId]);
 
-    return { clients, saving, addClient };
+    const updateClient = useCallback(async (id, payload) => {
+        setSaving(true);
+        try {
+            const { data } = await put(`/tenant/client/${id}`, payload);
+            const updated = data?.data ?? data;
+            setClients((prev) => prev.map((client) => (client.id === id ? { ...client, ...updated } : client)));
+            return true;
+        } catch (error) {
+            console.error("Failed to update client:", error);
+            return false;
+        } finally {
+            setSaving(false);
+        }
+    }, []);
+
+    const deleteClient = useCallback(async (id) => {
+        setDeletingId(id);
+        try {
+            await del(`/tenant/client/${id}`);
+            setClients((prev) => prev.filter((client) => client.id !== id));
+            return true;
+        } catch (error) {
+            console.error("Failed to delete client:", error);
+            return false;
+        } finally {
+            setDeletingId(null);
+        }
+    }, []);
+
+    return { clients, saving, addClient, updateClient, deleteClient, deletingId };
 }

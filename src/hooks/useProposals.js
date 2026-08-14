@@ -12,7 +12,7 @@ export function useProposals(tenantId) {
 
         (async () => {
             try {
-                const { data } = await get(`/tenant/${tenantId}/proposal`);
+                const { data } = await get(`/tenant/proposal`);
                 const list = Array.isArray(data) ? data : data?.content ?? [];
                 if (!cancelled) setProposals(list);
             } catch (error) {
@@ -28,7 +28,7 @@ export function useProposals(tenantId) {
     const addProposal = useCallback(async (payload) => {
         setSaving(true);
         try {
-            const { data } = await post(`/tenant/${tenantId}/proposal`, payload);
+            const { data } = await post(`/tenant/proposal`, payload);
             setProposals((prev) => [...prev, data]);
             return true;
         } catch (error) {
