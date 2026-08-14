@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { LuEye } from "react-icons/lu";
 import InlineTab from "../../common/InlineTab/InlineTab";
 import { useAuth } from "../../context/AuthContext";
@@ -12,6 +13,7 @@ export default function Contract() {
     const { user } = useAuth();
     const tenantId = user?.tenantId;
     const { contracts } = useContracts(tenantId);
+    const navigate = useNavigate();
 
     const [status, setStatus] = useState(STATUS_TABS[0]);
     const [role, setRole] = useState("All");
@@ -83,6 +85,7 @@ export default function Contract() {
                                 <td className="whitespace-nowrap px-4 py-3">
                                     <button
                                         type="button"
+                                        onClick={() => navigate(`/proposal-discussion/${contract.id}`)}
                                         className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-primary hover:bg-primary-light"
                                     >
                                         <LuEye className="h-3.5 w-3.5" />
