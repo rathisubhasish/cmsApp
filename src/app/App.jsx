@@ -7,6 +7,8 @@ import Home from "../pages/Home"
 import Client from "../pages/Client"
 import Proposal from "../pages/Proposal"
 import Contract from "../pages/Contract"
+import ProposalDiscussion from "../pages/ProposalDiscussion"
+import UploadDocument from "../pages/UploadDocument"
 import Settings from "../pages/Settings"
 import ProtectedRoute from '../routes/ProtectedRoutes'
 import HomeLayout from '../HomeLayout'
@@ -24,6 +26,8 @@ function App() {
                 <Route path="client" element={<Client />} />
                 <Route path="proposal" element={<Proposal />} />
                 <Route path="contract" element={<Contract />} />
+                <Route path="proposal-discussion/:id" element={<ProposalDiscussion />} />
+                <Route path="upload-document" element={<UploadDocument />} />
                 <Route path="settings" element={<Settings />} />
               </Route>
             </Route>
