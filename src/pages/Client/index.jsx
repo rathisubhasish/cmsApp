@@ -1,23 +1,13 @@
 import { useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useNavigate } from "react-router-dom";
 import { LuSearch, LuPlus, LuLayoutGrid, LuTable, LuEye, LuPencil, LuTrash2, LuEllipsisVertical } from "react-icons/lu";
 import Button from "../../common/Button/Button";
-import SidePanel from "../../common/SidePanel/SidePanel";
 import Modal from "../../Modal";
 import { useAuth } from "../../context/AuthContext";
 import { useClients } from "../../hooks/useClients";
 
 const COLUMNS = ["Logo", "Name", "Mobile", "Email", "Address", "City", "State", "Pincode", "Country", "Actions"];
-
-const DETAIL_FIELDS = [
-    { label: "PAN", key: "pan" },
-    { label: "GST", key: "gst" },
-    { label: "City", key: "city" },
-    { label: "State", key: "state" },
-    { label: "Pincode", key: "pincode" },
-    { label: "Country", key: "country" },
-    { label: "Address", key: "address", span: true },
-];
 
 const FORM = {
     name: "",
@@ -112,6 +102,7 @@ function ClientActionsMenu({ client, onView, onEdit, onDelete, deleting }) {
 }
 
 export default function Client() {
+    const navigate = useNavigate();
     const { user } = useAuth();
     const tenantId = user?.tenantId;
     const { clients, saving, addClient, updateClient, deleteClient, deletingId } = useClients(tenantId);
@@ -121,7 +112,6 @@ export default function Client() {
     const [clientModal, setClientModal] = useState(false);
     const [clientForm, setClientForm] = useState(FORM);
     const [editingClient, setEditingClient] = useState(null);
-    const [viewClient, setViewClient] = useState(null);
 
     const filteredClients = clients.filter((client) =>
         (client.name ?? "").toLowerCase().includes(search.toLowerCase())
@@ -140,8 +130,11 @@ export default function Client() {
     const openEditModal = (client) => {
         setEditingClient(client);
         setClientForm({ ...FORM, ...client });
-        setViewClient(null);
         setClientModal(true);
+    };
+
+    const openClientDetail = (client) => {
+        navigate(`/client/${client.id}`, { state: { client } });
     };
 
     const handleSubmit = async (e) => {
@@ -154,7 +147,6 @@ export default function Client() {
 
     const handleDelete = async (client) => {
         if (!window.confirm(`Delete client "${client.name}"? This cannot be undone.`)) return;
-        if (viewClient?.id === client.id) setViewClient(null);
         await deleteClient(client.id);
     };
 
@@ -225,7 +217,7 @@ export default function Client() {
                                     <td className="whitespace-nowrap px-4 py-3">
                                         <ClientActionsMenu
                                             client={client}
-                                            onView={setViewClient}
+                                            onView={openClientDetail}
                                             onEdit={openEditModal}
                                             onDelete={handleDelete}
                                             deleting={deletingId === client.id}
@@ -264,7 +256,7 @@ export default function Client() {
                                 <span className="text-xs text-text-secondary">{client.joinedAgo || "-"}</span>
                                 <ClientActionsMenu
                                     client={client}
-                                    onView={setViewClient}
+                                    onView={openClientDetail}
                                     onEdit={openEditModal}
                                     onDelete={handleDelete}
                                     deleting={deletingId === client.id}
@@ -403,53 +395,6 @@ export default function Client() {
                     </Modal>
                 )
             }
-
-            <SidePanel
-                open={!!viewClient}
-                title={viewClient?.name || "Client"}
-                subtitle={viewClient?.email || ""}
-                onClose={() => setViewClient(null)}
-                headerActions={
-                    viewClient && (
-                        <button
-                            type="button"
-                            onClick={() => openEditModal(viewClient)}
-                            className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-primary hover:bg-primary-light"
-                        >
-                            <LuPencil className="h-3.5 w-3.5" />
-                            Edit
-                        </button>
-                    )
-                }
-            >
-                {viewClient && (
-                    <div className="space-y-6">
-                        <div>
-                            <h3 className="mb-2 text-sm font-semibold text-text-primary">Contact Information</h3>
-                            <div className="rounded-xl bg-primary-light p-4">
-                                <div className="flex items-center justify-between gap-3">
-                                    <span className="font-semibold text-text-primary">{viewClient.name || "-"}</span>
-                                    <span className="whitespace-nowrap text-xs font-medium text-primary-text">ID: {viewClient.id}</span>
-                                </div>
-                                <p className="mt-2 text-sm text-text-secondary">Email : {viewClient.email || "-"}</p>
-                                <p className="text-sm text-text-secondary">Mobile : {viewClient.mobile || "-"}</p>
-                            </div>
-                        </div>
-
-                        <div>
-                            <h3 className="mb-3 text-sm font-semibold text-text-primary">Details</h3>
-                            <div className="grid grid-cols-2 gap-x-4 gap-y-4">
-                                {DETAIL_FIELDS.map(({ label, key, span }) => (
-                                    <div key={key} className={span ? "col-span-2" : undefined}>
-                                        <p className="text-xs text-text-secondary">{label}</p>
-                                        <p className="mt-0.5 text-sm font-medium text-text-primary">{viewClient[key] || "-"}</p>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                )}
-            </SidePanel>
         </div>
     );
 }

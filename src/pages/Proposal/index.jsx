@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { LuPlus } from "react-icons/lu";
 import InlineTab from "../../common/InlineTab/InlineTab";
 import Button from "../../common/Button/Button";
@@ -8,7 +9,15 @@ import { useProposals } from "../../hooks/useProposals";
 
 const STATUS_TABS = ["DRAFT", "COMPLETE", "DECLINE"];
 
-const COLUMNS = ["Title", "Client", "Amount", "Status", "Created"];
+const COLUMNS = ["Proposal No", "Title", "Client", "Status", "Start Date"];
+
+const formatDate = (value) => {
+    if (!value) return "-";
+    const date = new Date(value);
+    return Number.isNaN(date.getTime())
+        ? "-"
+        : date.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+};
 
 const FORM = {
     title: "",
@@ -18,7 +27,9 @@ const FORM = {
 };
 
 export default function Proposal() {
+    const navigate = useNavigate();
     const { user } = useAuth();
+    console.log("user",user)
     const tenantId = user?.tenantId;
     const { proposals, saving, addProposal } = useProposals(tenantId);
 
@@ -82,11 +93,23 @@ export default function Proposal() {
                     <tbody>
                         {filteredProposals.map((proposal) => (
                             <tr key={proposal.id} className="border-b border-border last:border-b-0">
-                                <td className="whitespace-nowrap px-4 py-3 text-text-primary">{proposal.title}</td>
-                                <td className="whitespace-nowrap px-4 py-3 text-text-secondary">{proposal.clientName}</td>
-                                <td className="whitespace-nowrap px-4 py-3 text-text-secondary">{proposal.amount}</td>
-                                <td className="whitespace-nowrap px-4 py-3 text-text-secondary">{proposal.status}</td>
-                                <td className="whitespace-nowrap px-4 py-3 text-text-secondary">{proposal.createdAt}</td>
+                                <td className="whitespace-nowrap px-4 py-3">
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            navigate(`/proposal-discussion/${proposal.id}`, { state: { proposal } })
+                                        }
+                                        className="font-medium text-primary-text underline-offset-2 hover:underline"
+                                    >
+                                        {proposal.proposalNumber || "-"}
+                                    </button>
+                                </td>
+                                <td className="whitespace-nowrap px-4 py-3 text-text-primary">{proposal.title || "-"}</td>
+                                <td className="whitespace-nowrap px-4 py-3 text-text-secondary">{proposal.clientName || "-"}</td>
+                                <td className="whitespace-nowrap px-4 py-3 text-text-secondary">{proposal.status || "-"}</td>
+                                <td className="whitespace-nowrap px-4 py-3 text-text-secondary">
+                                    {formatDate(proposal.proposalStartDate)}
+                                </td>
                             </tr>
                         ))}
                         {filteredProposals.length === 0 && (

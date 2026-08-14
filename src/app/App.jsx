@@ -5,6 +5,7 @@ import { ClientProvider } from '../context/ClientContext'
 import Login from "../pages/Login/login"
 import Home from "../pages/Home"
 import Client from "../pages/Client"
+import ClientDetail from "../pages/ClientDetail"
 import Proposal from "../pages/Proposal"
 import Contract from "../pages/Contract"
 import ProposalDiscussion from "../pages/ProposalDiscussion"
@@ -24,6 +25,7 @@ function App() {
               <Route element={<HomeLayout />}>
                 <Route index element={<Home />} />
                 <Route path="client" element={<Client />} />
+                <Route path="client/:clientId" element={<ClientDetail />} />
                 <Route path="proposal" element={<Proposal />} />
                 <Route path="contract" element={<Contract />} />
                 <Route path="proposal-discussion/:id" element={<ProposalDiscussion />} />
