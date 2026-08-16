@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { LuArrowLeft, LuCalendar, LuPlus } from "react-icons/lu";
 import Button from "../../common/Button/Button";
 import Timeline, { TimelineItem } from "../../common/Timeline/Timeline";
@@ -8,32 +8,34 @@ import { useAuth } from "../../context/AuthContext";
 import { useClientMembers } from "../../hooks/useClientDetail";
 import { useCreateContract } from "../../hooks/useContracts";
 import { useProposal } from "../../hooks/useProposals";
+import { formatAmount, formatDate, humanize } from "../../services/utility";
 
-const formatDate = (value) => {
-    if (!value) return "-";
+const BILLING_OPTIONS = ["MONTHLY", "HALF_YEARLY", "YEARLY", "ONE_TIME"];
+
+// datetime-local needs a local "YYYY-MM-DDTHH:mm" string, not an ISO/UTC one.
+const toDateTimeLocal = (value) => {
+    if (!value) return "";
     const date = new Date(value);
-    return Number.isNaN(date.getTime())
-        ? "-"
-        : date.toLocaleString("en-IN", {
-              day: "2-digit",
-              month: "short",
-              year: "numeric",
-              hour: "2-digit",
-              minute: "2-digit",
-          });
+    if (Number.isNaN(date.getTime())) return "";
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(
+        date.getHours()
+    )}:${pad(date.getMinutes())}`;
 };
+
+function Row({ label, value }) {
+    return (
+        <div className="flex items-center justify-between gap-3">
+            <dt className="text-text-secondary">{label}</dt>
+            <dd className="text-right font-medium text-text-primary">{value}</dd>
+        </div>
+    );
+}
 
 const DISCUSSION_FIELDS = [
     { label: "Description", key: "description" },
     { label: "Requirement", key: "requirement" },
     { label: "Remarks", key: "remarks" },
-];
-
-const BILLING_TYPES = [
-    { value: "MONTHLY", label: "Monthly" },
-    { value: "HALF_YEARLY", label: "Half Yearly" },
-    { value: "YEARLY", label: "Yearly" },
-    { value: "ONE_TIME", label: "One Time" },
 ];
 
 const CONTRACT_TYPES = [
@@ -49,7 +51,6 @@ const CONTRACT_STATUS = "MANAGER_APPROVAL_PENDING";
 function ContractFormModal({ proposalId, defaultTitle, saving, onClose, onSubmit }) {
     const [form, setForm] = useState({
         contractTitle: defaultTitle ?? "",
-        billingType: "",
         contractType: "",
     });
 
@@ -63,7 +64,6 @@ function ContractFormModal({ proposalId, defaultTitle, saving, onClose, onSubmit
             contractTitle: form.contractTitle,
             proposalId,
             status: CONTRACT_STATUS,
-            billingType: form.billingType,
             contractType: form.contractType,
         });
         if (success) onClose();
@@ -83,26 +83,7 @@ function ContractFormModal({ proposalId, defaultTitle, saving, onClose, onSubmit
                     />
                 </div>
 
-                <div>
-                    <label className="mb-1 block text-sm font-medium text-text-primary">Billing Type</label>
-                    <select
-                        required
-                        value={form.billingType}
-                        onChange={handleChange("billingType")}
-                        className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary outline-none focus:border-primary"
-                    >
-                        <option value="" disabled>
-                            Select billing type
-                        </option>
-                        {BILLING_TYPES.map(({ value, label }) => (
-                            <option key={value} value={value}>
-                                {label}
-                            </option>
-                        ))}
-                    </select>
-                </div>
-
-                <div>
+                <div className="col-span-2">
                     <label className="mb-1 block text-sm font-medium text-text-primary">Contract Type</label>
                     <select
                         required
@@ -150,7 +131,17 @@ const DISCUSSION_TEXTAREAS = [
     { label: "Remarks", key: "remarks", required: false },
 ];
 
-function DiscussionFormModal({ proposalId, clientId, tenantUserId, clientUserId, saving, onClose, onSubmit }) {
+function DiscussionFormModal({
+    proposalId,
+    clientId,
+    tenantUserId,
+    clientUserId,
+    proposalStartDate,
+    latestVersion,
+    saving,
+    onClose,
+    onSubmit,
+}) {
     const { members, loading: loadingMembers } = useClientMembers(clientId);
     const [form, setForm] = useState({
         clientUserId: clientUserId ?? "",
@@ -159,24 +150,47 @@ function DiscussionFormModal({ proposalId, clientId, tenantUserId, clientUserId,
         description: "",
         remarks: "",
         requirement: "",
+        termChanged: false,
+        // Term fields start from the latest version, so a change is an edit of what is in force today.
+        proposalAmount: latestVersion?.proposalAmount ?? "",
+        billing: latestVersion?.billing ?? "",
+        startDate: toDateTimeLocal(latestVersion?.startDate),
+        endDate: toDateTimeLocal(latestVersion?.endDate),
     });
 
     const handleChange = (field) => (e) => {
-        setForm((prev) => ({ ...prev, [field]: e.target.value }));
+        const value = field === "termChanged" ? e.target.checked : e.target.value;
+        setForm((prev) => ({ ...prev, [field]: value }));
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        const success = await onSubmit({
+
+        const payload = {
             proposalId,
-            tenantUserId,
             clientUserId: Number(form.clientUserId),
+            tenantUserId,
             meetingDate: new Date(form.meetingDate).toISOString(),
             title: form.title,
             description: form.description,
             remarks: form.remarks,
             requirement: form.requirement,
-        });
+            termChanged: form.termChanged,
+            createdBy: tenantUserId,
+        };
+
+        if (proposalStartDate) {
+            payload.proposalStartDate = new Date(proposalStartDate).toISOString();
+        }
+
+        if (form.termChanged) {
+            payload.proposalAmount = Number(form.proposalAmount);
+            payload.billing = form.billing;
+            payload.startDate = new Date(form.startDate).toISOString();
+            payload.endDate = new Date(form.endDate).toISOString();
+        }
+
+        const success = await onSubmit(payload);
         if (success) onClose();
     };
 
@@ -239,6 +253,84 @@ function DiscussionFormModal({ proposalId, clientId, tenantUserId, clientUserId,
                     </div>
                 ))}
 
+                <label className="col-span-2 flex items-center gap-2 border-t border-border pt-4 text-sm font-medium text-text-primary">
+                    <input
+                        type="checkbox"
+                        checked={form.termChanged}
+                        onChange={handleChange("termChanged")}
+                        className="h-4 w-4 accent-primary"
+                    />
+                    Terms changed in this discussion
+                </label>
+
+                {form.termChanged && (
+                    <>
+                        <div className="col-span-2 -mt-2">
+                            <p className="text-xs text-text-secondary">
+                                {latestVersion
+                                    ? `Pre-filled from version ${latestVersion.proposalVersionNumber}. Saving creates a new version.`
+                                    : "No existing version — these values create the first version."}
+                            </p>
+                        </div>
+
+                        <div>
+                            <label className="mb-1 block text-sm font-medium text-text-primary">
+                                Proposal Amount
+                            </label>
+                            <input
+                                type="number"
+                                required
+                                min="0"
+                                value={form.proposalAmount}
+                                onChange={handleChange("proposalAmount")}
+                                className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary outline-none focus:border-primary"
+                            />
+                        </div>
+
+                        <div>
+                            <label className="mb-1 block text-sm font-medium text-text-primary">Billing</label>
+                            <select
+                                required
+                                value={form.billing}
+                                onChange={handleChange("billing")}
+                                className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary outline-none focus:border-primary"
+                            >
+                                <option value="" disabled>
+                                    Select billing
+                                </option>
+                                {BILLING_OPTIONS.map((value) => (
+                                    <option key={value} value={value}>
+                                        {humanize(value)}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div>
+                            <label className="mb-1 block text-sm font-medium text-text-primary">Start Date</label>
+                            <input
+                                type="datetime-local"
+                                required
+                                value={form.startDate}
+                                onChange={handleChange("startDate")}
+                                className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary outline-none focus:border-primary"
+                            />
+                        </div>
+
+                        <div>
+                            <label className="mb-1 block text-sm font-medium text-text-primary">End Date</label>
+                            <input
+                                type="datetime-local"
+                                required
+                                min={form.startDate || undefined}
+                                value={form.endDate}
+                                onChange={handleChange("endDate")}
+                                className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary outline-none focus:border-primary"
+                            />
+                        </div>
+                    </>
+                )}
+
                 <div className="col-span-2 mt-2 flex justify-end gap-3">
                     <button
                         type="button"
@@ -258,21 +350,20 @@ function DiscussionFormModal({ proposalId, clientId, tenantUserId, clientUserId,
 
 export default function ProposalDiscussion() {
     const navigate = useNavigate();
-    const location = useLocation();
     const { id } = useParams();
     const { user } = useAuth();
-    console.log("user",user)
-    const { proposal, loading, savingDiscussion, addDiscussion } = useProposal(
-        id,
-        location.state?.proposal ?? null
-    );
+    const { proposal, loading, savingDiscussion, addDiscussion } = useProposal(id);
     const [discussionModal, setDiscussionModal] = useState(false);
     const [contractModal, setContractModal] = useState(false);
     const { saving: savingContract, createContract } = useCreateContract();
 
-    const discussions = [...(proposal?.proposalDiscussion ?? [])].sort(
+    const discussions = [...(proposal?.discussions ?? [])].sort(
         (a, b) => new Date(a.meetingDate) - new Date(b.meetingDate)
     );
+    const versions = [...(proposal?.versions ?? [])].sort(
+        (a, b) => (b.proposalVersionNumber ?? 0) - (a.proposalVersionNumber ?? 0)
+    );
+    const isComplete = (proposal?.status || "").toUpperCase() === "COMPLETE";
 
     return (
         <div>
@@ -292,9 +383,11 @@ export default function ProposalDiscussion() {
                         {proposal?.proposalNumber || `Proposal ID: ${id}`}
                     </p>
                 </div>
-                <Button className="!w-auto px-4" onClick={() => setContractModal(true)}>
-                    Convert to Contract
-                </Button>
+                {!isComplete && (
+                    <Button className="!w-auto px-4" onClick={() => setContractModal(true)}>
+                        Convert to Contract
+                    </Button>
+                )}
             </div>
 
             {loading ? (
@@ -322,7 +415,7 @@ export default function ProposalDiscussion() {
                                         marker={
                                             <span className="flex items-center gap-1.5 text-xs font-medium text-primary-text">
                                                 <LuCalendar className="h-3.5 w-3.5" />
-                                                {formatDate(entry.meetingDate)}
+                                                {formatDate(entry.meetingDate, true)}
                                             </span>
                                         }
                                     >
@@ -363,37 +456,84 @@ export default function ProposalDiscussion() {
                         </div>
                     </div>
 
-                    <div className="rounded-xl border border-border p-4">
-                        <h2 className="text-sm font-semibold text-text-primary">Proposal Details</h2>
+                    <div className="flex flex-col gap-6">
+                        <div className="rounded-xl border border-border p-4">
+                            <h2 className="text-sm font-semibold text-text-primary">Proposal Details</h2>
 
-                        <dl className="mt-3 flex flex-col gap-2.5 text-sm">
-                            <div className="flex items-center justify-between gap-3">
-                                <dt className="text-text-secondary">Proposal No</dt>
-                                <dd className="font-medium text-text-primary">{proposal.proposalNumber || "-"}</dd>
-                            </div>
-                            <div className="flex items-center justify-between gap-3">
-                                <dt className="text-text-secondary">Client</dt>
-                                <dd className="font-medium text-text-primary">{proposal.clientName || "-"}</dd>
-                            </div>
-                            <div className="flex items-center justify-between gap-3">
-                                <dt className="text-text-secondary">Tenant</dt>
-                                <dd className="font-medium text-text-primary">{proposal.tenantName || "-"}</dd>
-                            </div>
-                            <div className="flex items-center justify-between gap-3">
-                                <dt className="text-text-secondary">Status</dt>
-                                <dd className="font-medium text-text-primary">{proposal.status || "-"}</dd>
-                            </div>
-                            <div className="flex items-center justify-between gap-3">
-                                <dt className="text-text-secondary">Start Date</dt>
-                                <dd className="font-medium text-text-primary">
-                                    {formatDate(proposal.proposalStartDate)}
-                                </dd>
-                            </div>
-                        </dl>
+                            <dl className="mt-3 flex flex-col gap-2.5 text-sm">
+                                <Row label="Proposal No" value={proposal.proposalNumber || "-"} />
+                                <Row label="Status" value={humanize(proposal.status)} />
+                                <Row label="Start Date" value={formatDate(proposal.proposalStartDate)} />
+                                <Row label="Tenant" value={proposal.tenant?.name || "-"} />
+                            </dl>
 
-                        <div className="mt-4 border-t border-border pt-3">
-                            <p className="text-xs text-text-secondary">Description</p>
-                            <p className="mt-0.5 text-sm text-text-primary">{proposal.description || "-"}</p>
+                            <div className="mt-4 border-t border-border pt-3">
+                                <p className="text-xs text-text-secondary">Description</p>
+                                <p className="mt-0.5 text-sm text-text-primary">{proposal.description || "-"}</p>
+                            </div>
+                        </div>
+
+                        <div className="rounded-xl border border-border">
+                            <div className="flex items-center justify-between border-b border-border px-4 py-3">
+                                <h2 className="text-sm font-semibold text-text-primary">Versions</h2>
+                                <span className="text-xs text-text-secondary">{versions.length} versions</span>
+                            </div>
+
+                            {versions.length === 0 ? (
+                                <p className="px-4 py-6 text-center text-sm text-text-secondary">
+                                    No versions yet.
+                                </p>
+                            ) : (
+                                <div className="flex flex-col gap-3 p-4">
+                                    {versions.map((version) => (
+                                        <div key={version.id} className="rounded-lg border border-border p-3">
+                                            <div className="flex items-center justify-between gap-2">
+                                                <span className="rounded-full bg-primary-light px-2.5 py-1 text-xs font-semibold text-primary-text">
+                                                    v{version.proposalVersionNumber ?? "-"}
+                                                </span>
+                                                <span className="text-sm font-semibold text-text-primary">
+                                                    {formatAmount(version.proposalAmount, version.currency)}
+                                                </span>
+                                            </div>
+
+                                            <dl className="mt-3 flex flex-col gap-2 text-xs">
+                                                <Row label="Billing" value={humanize(version.billing)} />
+                                                <Row label="Start" value={formatDate(version.startDate)} />
+                                                <Row label="End" value={formatDate(version.endDate)} />
+                                            </dl>
+
+                                            <p className="mt-3 border-t border-border pt-2 text-xs text-text-secondary">
+                                                Created by {version.createdByName || "-"} on{" "}
+                                                {formatDate(version.createdAt)}
+                                            </p>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="rounded-xl border border-border p-4">
+                            <h2 className="text-sm font-semibold text-text-primary">Client</h2>
+
+                            <dl className="mt-3 flex flex-col gap-2.5 text-sm">
+                                <Row label="Name" value={proposal.client?.name || "-"} />
+                                <Row label="Email" value={proposal.client?.email || "-"} />
+                                <Row label="Mobile" value={proposal.client?.mobile || "-"} />
+                                <Row label="City" value={proposal.client?.city || "-"} />
+                            </dl>
+
+                            <div className="mt-4 border-t border-border pt-3">
+                                <p className="text-xs text-text-secondary">Contact Person</p>
+                                <p className="mt-0.5 text-sm font-medium text-text-primary">
+                                    {[proposal.clientUser?.firstname, proposal.clientUser?.lastname]
+                                        .filter(Boolean)
+                                        .join(" ") || "-"}
+                                </p>
+                                <p className="text-xs text-text-secondary">
+                                    {proposal.clientUser?.email || "-"}
+                                    {proposal.clientUser?.mobile ? ` · ${proposal.clientUser.mobile}` : ""}
+                                </p>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -402,9 +542,11 @@ export default function ProposalDiscussion() {
             {discussionModal && (
                 <DiscussionFormModal
                     proposalId={id}
-                    clientId={proposal?.clientId}
+                    clientId={proposal?.client?.id}
                     tenantUserId={user?.id}
-                    clientUserId={proposal?.clientUserId}
+                    clientUserId={proposal?.clientUser?.id}
+                    proposalStartDate={proposal?.proposalStartDate}
+                    latestVersion={versions[0]}
                     saving={savingDiscussion}
                     onClose={() => setDiscussionModal(false)}
                     onSubmit={addDiscussion}

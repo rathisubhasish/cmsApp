@@ -1,9 +1,18 @@
-import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { LuArrowLeft, LuCalendar, LuExternalLink } from "react-icons/lu";
+import Button from "../../common/Button/Button";
 import Loader from "../../common/Loader/Loader";
 import Timeline, { TimelineItem } from "../../common/Timeline/Timeline";
+import { useAuth } from "../../context/AuthContext";
 import { useContract, contractId } from "../../hooks/useContracts";
-import { formatDate, humanize } from "../../services/utility";
+import { formatAmount, formatDate, humanize } from "../../services/utility";
+
+// Each pending status is actionable by exactly one role, per the backend Role enum.
+const APPROVAL_ROLE_BY_STATUS = {
+    MANAGER_APPROVAL_PENDING: "MANAGER",
+    FINANCE_APPROVAL_PENDING: "FINANCE",
+    LEGAL_APPROVAL_PENDING: "LEGAL",
+};
 
 const TENANT_FIELDS = [
     { label: "Legal Name", key: "legalName" },
@@ -27,18 +36,33 @@ function Row({ label, value }) {
 
 export default function ContractDetail() {
     const navigate = useNavigate();
-    const location = useLocation();
     const { id } = useParams();
-    const { contract, loading } = useContract(id, location.state?.contract ?? null);
+    const { user } = useAuth();
+    const { contract, loading, acting, runAction } = useContract(id);
 
     const proposal = contract?.proposal;
-    const tenant = contract?.tenant;
-    const discussions = [...(proposal?.proposalDiscussion ?? [])].sort(
+    const tenant = contract?.tenant ?? proposal?.tenant;
+    const clientName = proposal?.clientName ?? proposal?.client?.name;
+    const discussions = [...(proposal?.discussions ?? proposal?.proposalDiscussion ?? [])].sort(
         (a, b) => new Date(a.meetingDate) - new Date(b.meetingDate)
+    );
+    const versions = [...(contract?.proposalVersions ?? proposal?.versions ?? [])].sort(
+        (a, b) => (b.proposalVersionNumber ?? 0) - (a.proposalVersionNumber ?? 0)
     );
     const timeline = [...(contract?.timeLine ?? [])].sort(
         (a, b) => new Date(a.actionAt) - new Date(b.actionAt)
     );
+    const canAct =
+        !!contract &&
+        !!user?.role &&
+        APPROVAL_ROLE_BY_STATUS[(contract.status || "").toUpperCase()] === user.role.toUpperCase();
+
+    const handleRevert = async () => {
+        if (!window.confirm("Revert this contract back to the proposal? The contract will leave approval.")) {
+            return;
+        }
+        await runAction("revert");
+    };
 
     return (
         <div>
@@ -51,13 +75,36 @@ export default function ContractDetail() {
                 Back
             </button>
 
-            <div className="mt-4">
-                <h1 className="text-xl font-semibold text-text-primary">
-                    {contract?.contractTitle || "Contract"}
-                </h1>
-                <p className="mt-1 text-sm text-text-secondary">
-                    {contract ? `Contract ID: ${contractId(contract)}` : `Contract ID: ${id}`}
-                </p>
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-4">
+                <div>
+                    <h1 className="text-xl font-semibold text-text-primary">
+                        {contract?.contractTitle || "Contract"}
+                    </h1>
+                    <p className="mt-1 text-sm text-text-secondary">
+                        {contract ? `Contract ID: ${contractId(contract)}` : `Contract ID: ${id}`}
+                    </p>
+                </div>
+
+                {canAct && (
+                    <div className="flex items-center gap-3">
+                        <button
+                            type="button"
+                            disabled={!!acting}
+                            onClick={handleRevert}
+                            className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-text-primary hover:bg-primary-light disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                            {acting === "revert" ? "Reverting..." : "Revert to Proposal"}
+                        </button>
+                        <Button
+                            className="!w-auto px-4"
+                            loading={acting === "approve"}
+                            disabled={!!acting}
+                            onClick={() => runAction("approve")}
+                        >
+                            Approve
+                        </Button>
+                    </div>
+                )}
             </div>
 
             {loading ? (
@@ -73,7 +120,24 @@ export default function ContractDetail() {
                                 <Row label="Title" value={contract.contractTitle || "-"} />
                                 <Row label="Status" value={humanize(contract.status)} />
                                 <Row label="Contract Type" value={humanize(contract.contractType)} />
-                                <Row label="Billing Type" value={humanize(contract.billingType)} />
+                                <Row
+                                    label="Amount"
+                                    value={formatAmount(contract.proposalAmount, contract.currency)}
+                                />
+                                <Row
+                                    label="Billing"
+                                    value={humanize(contract.billing ?? contract.billingType)}
+                                />
+                                <Row label="Start Date" value={formatDate(contract.startDate)} />
+                                <Row label="End Date" value={formatDate(contract.endDate)} />
+                                <Row
+                                    label="Proposal Version"
+                                    value={
+                                        contract.proposalVersionNumber
+                                            ? `v${contract.proposalVersionNumber}`
+                                            : "-"
+                                    }
+                                />
                             </dl>
                         </div>
 
@@ -101,7 +165,7 @@ export default function ContractDetail() {
                                     <dl className="mt-3 flex flex-col gap-2.5 text-sm">
                                         <Row label="Proposal No" value={proposal.proposalNumber || "-"} />
                                         <Row label="Title" value={proposal.title || "-"} />
-                                        <Row label="Client" value={proposal.clientName || "-"} />
+                                        <Row label="Client" value={clientName || "-"} />
                                         <Row label="Status" value={humanize(proposal.status)} />
                                         <Row label="Start Date" value={formatDate(proposal.proposalStartDate)} />
                                     </dl>
@@ -115,6 +179,56 @@ export default function ContractDetail() {
                                 </>
                             )}
                         </div>
+
+                        {versions.length > 0 && (
+                            <div className="rounded-xl border border-border">
+                                <div className="flex items-center justify-between border-b border-border px-4 py-3">
+                                    <h2 className="text-sm font-semibold text-text-primary">Proposal Versions</h2>
+                                    <span className="text-xs text-text-secondary">{versions.length} versions</span>
+                                </div>
+
+                                <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2">
+                                    {versions.map((version) => (
+                                        <div
+                                            key={version.id}
+                                            className={
+                                                version.proposalVersionNumber === contract.proposalVersionNumber
+                                                    ? "rounded-lg border border-primary p-3"
+                                                    : "rounded-lg border border-border p-3"
+                                            }
+                                        >
+                                            <div className="flex items-center justify-between gap-2">
+                                                <span className="flex items-center gap-2">
+                                                    <span className="rounded-full bg-primary-light px-2.5 py-1 text-xs font-semibold text-primary-text">
+                                                        v{version.proposalVersionNumber ?? "-"}
+                                                    </span>
+                                                    {version.proposalVersionNumber ===
+                                                        contract.proposalVersionNumber && (
+                                                        <span className="text-xs font-medium text-primary-text">
+                                                            On contract
+                                                        </span>
+                                                    )}
+                                                </span>
+                                                <span className="text-sm font-semibold text-text-primary">
+                                                    {formatAmount(version.proposalAmount, version.currency)}
+                                                </span>
+                                            </div>
+
+                                            <dl className="mt-3 flex flex-col gap-2 text-xs">
+                                                <Row label="Billing" value={humanize(version.billing)} />
+                                                <Row label="Start" value={formatDate(version.startDate)} />
+                                                <Row label="End" value={formatDate(version.endDate)} />
+                                            </dl>
+
+                                            <p className="mt-3 border-t border-border pt-2 text-xs text-text-secondary">
+                                                Created by {version.createdByName || "-"} on{" "}
+                                                {formatDate(version.createdAt)}
+                                            </p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
 
                         <div className="rounded-xl border border-border">
                             <div className="flex items-center justify-between border-b border-border px-4 py-3">

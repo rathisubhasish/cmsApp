@@ -5,34 +5,51 @@ const unwrapList = (data) => (Array.isArray(data) ? data : data?.data ?? data?.c
 
 export const contractId = (contract) => contract?.Id ?? contract?.id;
 
-export function useContract(id, initialContract = null) {
-    const [contract, setContract] = useState(initialContract);
-    const [loading, setLoading] = useState(!initialContract);
+export function useContract(id) {
+    const [contract, setContract] = useState(null);
+    const [loading, setLoading] = useState(!!id);
+    const [acting, setActing] = useState(null);
+
+    const fetchContract = useCallback(async () => {
+        if (!id) return;
+        try {
+            const { data } = await get(`/tenant/contract/${id}`);
+            setContract(data?.data ?? data ?? null);
+        } catch (error) {
+            console.error("Failed to fetch contract:", error);
+        }
+    }, [id]);
 
     useEffect(() => {
-        if (!id || initialContract) return;
-
         let cancelled = false;
 
         (async () => {
             setLoading(true);
-            try {
-                const { data } = await get(`/tenant/contract`);
-                const found = unwrapList(data).find((item) => contractId(item) === id) ?? null;
-                if (!cancelled) setContract(found);
-            } catch (error) {
-                console.error("Failed to fetch contract:", error);
-            } finally {
-                if (!cancelled) setLoading(false);
-            }
+            await fetchContract();
+            if (!cancelled) setLoading(false);
         })();
 
         return () => {
             cancelled = true;
         };
-    }, [id, initialContract]);
+    }, [fetchContract]);
 
-    return { contract, loading };
+    // action is "approve" or "revert" — both move the contract to its next status server-side.
+    const runAction = useCallback(async (action) => {
+        setActing(action);
+        try {
+            await post(`/tenant/contract/${id}/${action}`);
+            await fetchContract();
+            return true;
+        } catch (error) {
+            console.error(`Failed to ${action} contract:`, error);
+            return false;
+        } finally {
+            setActing(null);
+        }
+    }, [id, fetchContract]);
+
+    return { contract, loading, acting, runAction };
 }
 
 export function useCreateContract() {

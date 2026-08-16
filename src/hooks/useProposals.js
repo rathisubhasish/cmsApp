@@ -3,50 +3,41 @@ import { get, post } from "../network";
 
 const unwrapList = (data) => (Array.isArray(data) ? data : data?.data ?? data?.content ?? []);
 
-export function useProposal(proposalId, initialProposal = null) {
-    const [proposal, setProposal] = useState(initialProposal);
-    const [loading, setLoading] = useState(!initialProposal);
+export function useProposal(proposalId) {
+    const [proposal, setProposal] = useState(null);
+    const [loading, setLoading] = useState(!!proposalId);
     const [savingDiscussion, setSavingDiscussion] = useState(false);
 
-    useEffect(() => {
-        if (!proposalId || initialProposal) return;
+    const fetchProposal = useCallback(async () => {
+        if (!proposalId) return;
+        try {
+            const { data } = await get(`/tenant/proposal/${proposalId}`);
+            setProposal(data?.data ?? data ?? null);
+        } catch (error) {
+            console.error("Failed to fetch proposal:", error);
+        }
+    }, [proposalId]);
 
+    useEffect(() => {
         let cancelled = false;
 
         (async () => {
             setLoading(true);
-            try {
-                const { data } = await get(`/tenant/proposal`);
-                const found = unwrapList(data).find((item) => item.id === proposalId) ?? null;
-                if (!cancelled) setProposal(found);
-            } catch (error) {
-                console.error("Failed to fetch proposal:", error);
-            } finally {
-                if (!cancelled) setLoading(false);
-            }
+            await fetchProposal();
+            if (!cancelled) setLoading(false);
         })();
 
         return () => {
             cancelled = true;
         };
-    }, [proposalId, initialProposal]);
+    }, [fetchProposal]);
 
     const addDiscussion = useCallback(async (payload) => {
         setSavingDiscussion(true);
         try {
-            const { data } = await post(`/tenant/proposal/${proposalId}/discussion`, payload);
-            const newDiscussion = data?.data ?? data;
-            setProposal((prev) =>
-                prev
-                    ? {
-                          ...prev,
-                          proposalDiscussion: [
-                              ...(prev.proposalDiscussion ?? []),
-                              newDiscussion && typeof newDiscussion === "object" ? newDiscussion : payload,
-                          ],
-                      }
-                    : prev
-            );
+            await post(`/tenant/proposal/${proposalId}/discussion`, payload);
+            // A discussion with termChanged creates a new version, so pull the whole proposal again.
+            await fetchProposal();
             return true;
         } catch (error) {
             console.error("Failed to create proposal discussion:", error);
@@ -54,7 +45,7 @@ export function useProposal(proposalId, initialProposal = null) {
         } finally {
             setSavingDiscussion(false);
         }
-    }, [proposalId]);
+    }, [proposalId, fetchProposal]);
 
     return { proposal, loading, savingDiscussion, addDiscussion };
 }

@@ -14,6 +14,19 @@ export const humanize = (value) =>
         .replace(/\b\w/g, (char) => char.toUpperCase())
     : "-";
 
+export const formatAmount = (amount, currency) => {
+  if (amount === null || amount === undefined || amount === "") return "-";
+  try {
+    return new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: currency || "INR",
+      maximumFractionDigits: 0,
+    }).format(amount);
+  } catch {
+    return `${amount} ${currency || ""}`.trim();
+  }
+};
+
 export const formatDate = (value, withTime = false) => {
   if (!value) return "-";
   const date = new Date(value);
