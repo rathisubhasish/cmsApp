@@ -2,9 +2,11 @@ import { useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { LuArrowLeft, LuCalendar, LuPlus } from "react-icons/lu";
 import Button from "../../common/Button/Button";
+import Timeline, { TimelineItem } from "../../common/Timeline/Timeline";
 import Modal from "../../Modal";
 import { useAuth } from "../../context/AuthContext";
 import { useClientMembers } from "../../hooks/useClientDetail";
+import { useCreateContract } from "../../hooks/useContracts";
 import { useProposal } from "../../hooks/useProposals";
 
 const formatDate = (value) => {
@@ -26,6 +28,121 @@ const DISCUSSION_FIELDS = [
     { label: "Requirement", key: "requirement" },
     { label: "Remarks", key: "remarks" },
 ];
+
+const BILLING_TYPES = [
+    { value: "MONTHLY", label: "Monthly" },
+    { value: "HALF_YEARLY", label: "Half Yearly" },
+    { value: "YEARLY", label: "Yearly" },
+    { value: "ONE_TIME", label: "One Time" },
+];
+
+const CONTRACT_TYPES = [
+    { value: "SERVICE", label: "Service" },
+    { value: "VENDOR", label: "Vendor" },
+    { value: "EMPLOYMENT", label: "Employment" },
+    { value: "PARTNERSHIP", label: "Partnership" },
+    { value: "NDA", label: "NDA" },
+];
+
+const CONTRACT_STATUS = "MANAGER_APPROVAL_PENDING";
+
+function ContractFormModal({ proposalId, defaultTitle, saving, onClose, onSubmit }) {
+    const [form, setForm] = useState({
+        contractTitle: defaultTitle ?? "",
+        billingType: "",
+        contractType: "",
+    });
+
+    const handleChange = (field) => (e) => {
+        setForm((prev) => ({ ...prev, [field]: e.target.value }));
+    };
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        const success = await onSubmit({
+            contractTitle: form.contractTitle,
+            proposalId,
+            status: CONTRACT_STATUS,
+            billingType: form.billingType,
+            contractType: form.contractType,
+        });
+        if (success) onClose();
+    };
+
+    return (
+        <Modal title="Convert to Contract" onClose={onClose} width={560}>
+            <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-4">
+                <div className="col-span-2">
+                    <label className="mb-1 block text-sm font-medium text-text-primary">Contract Title</label>
+                    <input
+                        type="text"
+                        required
+                        value={form.contractTitle}
+                        onChange={handleChange("contractTitle")}
+                        className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary outline-none focus:border-primary"
+                    />
+                </div>
+
+                <div>
+                    <label className="mb-1 block text-sm font-medium text-text-primary">Billing Type</label>
+                    <select
+                        required
+                        value={form.billingType}
+                        onChange={handleChange("billingType")}
+                        className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary outline-none focus:border-primary"
+                    >
+                        <option value="" disabled>
+                            Select billing type
+                        </option>
+                        {BILLING_TYPES.map(({ value, label }) => (
+                            <option key={value} value={value}>
+                                {label}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+
+                <div>
+                    <label className="mb-1 block text-sm font-medium text-text-primary">Contract Type</label>
+                    <select
+                        required
+                        value={form.contractType}
+                        onChange={handleChange("contractType")}
+                        className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary outline-none focus:border-primary"
+                    >
+                        <option value="" disabled>
+                            Select contract type
+                        </option>
+                        {CONTRACT_TYPES.map(({ value, label }) => (
+                            <option key={value} value={value}>
+                                {label}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+
+                <div className="col-span-2">
+                    <p className="text-xs text-text-secondary">
+                        Status : <span className="font-medium text-text-primary">{CONTRACT_STATUS}</span>
+                    </p>
+                </div>
+
+                <div className="col-span-2 mt-2 flex justify-end gap-3">
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-text-primary hover:bg-primary-light"
+                    >
+                        Cancel
+                    </button>
+                    <Button type="submit" className="!w-auto px-4" loading={saving}>
+                        Create Contract
+                    </Button>
+                </div>
+            </form>
+        </Modal>
+    );
+}
 
 const DISCUSSION_TEXTAREAS = [
     { label: "Description", key: "description", required: true },
@@ -150,6 +267,8 @@ export default function ProposalDiscussion() {
         location.state?.proposal ?? null
     );
     const [discussionModal, setDiscussionModal] = useState(false);
+    const [contractModal, setContractModal] = useState(false);
+    const { saving: savingContract, createContract } = useCreateContract();
 
     const discussions = [...(proposal?.proposalDiscussion ?? [])].sort(
         (a, b) => new Date(a.meetingDate) - new Date(b.meetingDate)
@@ -173,7 +292,9 @@ export default function ProposalDiscussion() {
                         {proposal?.proposalNumber || `Proposal ID: ${id}`}
                     </p>
                 </div>
-                <Button className="!w-auto px-4">Convert to Contract</Button>
+                <Button className="!w-auto px-4" onClick={() => setContractModal(true)}>
+                    Convert to Contract
+                </Button>
             </div>
 
             {loading ? (
@@ -193,19 +314,18 @@ export default function ProposalDiscussion() {
                                 No discussion recorded for this proposal.
                             </p>
                         ) : (
-                            <ol className="flex flex-col px-4 py-5">
+                            <Timeline className="px-4 py-5">
                                 {discussions.map((entry, idx) => (
-                                    <li key={entry.id} className="relative pb-6 pl-8 last:pb-0">
-                                        {idx !== discussions.length - 1 && (
-                                            <span className="absolute bottom-0 left-[7px] top-5 w-px bg-border" />
-                                        )}
-                                        <span className="absolute left-0 top-1.5 h-3.5 w-3.5 rounded-full border-2 border-primary bg-surface" />
-
-                                        <span className="flex items-center gap-1.5 text-xs font-medium text-primary-text">
-                                            <LuCalendar className="h-3.5 w-3.5" />
-                                            {formatDate(entry.meetingDate)}
-                                        </span>
-
+                                    <TimelineItem
+                                        key={entry.id}
+                                        last={idx === discussions.length - 1}
+                                        marker={
+                                            <span className="flex items-center gap-1.5 text-xs font-medium text-primary-text">
+                                                <LuCalendar className="h-3.5 w-3.5" />
+                                                {formatDate(entry.meetingDate)}
+                                            </span>
+                                        }
+                                    >
                                         <div className="mt-2 rounded-lg border border-border p-4">
                                             <p className="text-sm font-semibold text-text-primary">
                                                 {entry.title || "-"}
@@ -227,9 +347,9 @@ export default function ProposalDiscussion() {
                                                 <span>Client User ID : {entry.clientUserId ?? "-"}</span>
                                             </div>
                                         </div>
-                                    </li>
+                                    </TimelineItem>
                                 ))}
-                            </ol>
+                            </Timeline>
                         )}
 
                         <div className="flex justify-end border-t border-border px-4 py-3">
@@ -288,6 +408,16 @@ export default function ProposalDiscussion() {
                     saving={savingDiscussion}
                     onClose={() => setDiscussionModal(false)}
                     onSubmit={addDiscussion}
+                />
+            )}
+
+            {contractModal && (
+                <ContractFormModal
+                    proposalId={id}
+                    defaultTitle={proposal?.title}
+                    saving={savingContract}
+                    onClose={() => setContractModal(false)}
+                    onSubmit={createContract}
                 />
             )}
         </div>

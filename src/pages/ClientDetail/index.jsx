@@ -3,6 +3,7 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { LuArrowLeft, LuPlus } from "react-icons/lu";
 import Button from "../../common/Button/Button";
 import InlineTab from "../../common/InlineTab/InlineTab";
+import Loader from "../../common/Loader/Loader";
 import Modal from "../../Modal";
 import { useClient, useClientMembers } from "../../hooks/useClientDetail";
 
@@ -168,7 +169,7 @@ function MembersTab({ clientId }) {
             </div>
 
             {loading ? (
-                <p className="text-sm text-text-secondary">Loading members...</p>
+                <Loader label="Loading members..." />
             ) : error ? (
                 <p className="text-sm text-red-600">Failed to load client members.</p>
             ) : !members.length ? (
@@ -268,7 +269,7 @@ export default function ClientDetail() {
             <div className="mt-6">
                 {activeTab === "details" ? (
                     loading ? (
-                        <p className="text-sm text-text-secondary">Loading client...</p>
+                        <Loader label="Loading client..." />
                     ) : client ? (
                         <DetailsTab client={client} />
                     ) : (

@@ -3,11 +3,16 @@ import { useNavigate } from "react-router-dom";
 import { LuPlus } from "react-icons/lu";
 import InlineTab from "../../common/InlineTab/InlineTab";
 import Button from "../../common/Button/Button";
+import Loader from "../../common/Loader/Loader";
 import Modal from "../../Modal";
 import { useAuth } from "../../context/AuthContext";
 import { useProposals } from "../../hooks/useProposals";
 
-const STATUS_TABS = ["DRAFT", "COMPLETE", "DECLINE"];
+const STATUS_TABS = [
+    { value: "DRAFT", label: "Draft" },
+    { value: "COMPLETE", label: "Completed" },
+    { value: "DECLINE", label: "Decline" },
+];
 
 const COLUMNS = ["Proposal No", "Title", "Client", "Status", "Start Date"];
 
@@ -31,20 +36,21 @@ export default function Proposal() {
     const { user } = useAuth();
     console.log("user",user)
     const tenantId = user?.tenantId;
-    const { proposals, saving, addProposal } = useProposals(tenantId);
+    const { proposals, loading, saving, addProposal } = useProposals(tenantId);
 
-    const [status, setStatus] = useState(STATUS_TABS[0]);
+    const [status, setStatus] = useState(STATUS_TABS[0].value);
     const [proposalModal, setProposalModal] = useState(false);
     const [proposalForm, setProposalForm] = useState(FORM);
 
-    const filteredProposals = proposals.filter(
-        (proposal) => (proposal.status || "").toUpperCase() === status
-    );
+    const byStatus = (value) =>
+        proposals.filter((proposal) => (proposal.status || "").toUpperCase() === value);
 
-    const tabs = STATUS_TABS.map((title) => ({
-        title,
-        active: status === title,
-        onClick: () => setStatus(title),
+    const filteredProposals = byStatus(status);
+
+    const tabs = STATUS_TABS.map(({ value, label }) => ({
+        title: `${label} (${byStatus(value).length})`,
+        active: status === value,
+        onClick: () => setStatus(value),
     }));
 
     const handleFieldChange = (field) => (e) => {
@@ -112,7 +118,14 @@ export default function Proposal() {
                                 </td>
                             </tr>
                         ))}
-                        {filteredProposals.length === 0 && (
+                        {loading && (
+                            <tr>
+                                <td colSpan={COLUMNS.length}>
+                                    <Loader label="Loading proposals..." />
+                                </td>
+                            </tr>
+                        )}
+                        {!loading && filteredProposals.length === 0 && (
                             <tr>
                                 <td colSpan={COLUMNS.length} className="px-4 py-6 text-center text-sm text-text-secondary">
                                     No proposals found

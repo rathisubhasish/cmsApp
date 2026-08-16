@@ -62,6 +62,7 @@ export function useProposal(proposalId, initialProposal = null) {
 export function useProposals(tenantId) {
     const [proposals, setProposals] = useState([]);
     const [saving, setSaving] = useState(false);
+    const [loading, setLoading] = useState(!!tenantId);
 
     useEffect(() => {
         if (!tenantId) return;
@@ -69,12 +70,15 @@ export function useProposals(tenantId) {
         let cancelled = false;
 
         (async () => {
+            setLoading(true);
             try {
                 const { data } = await get(`/tenant/proposal`);
                 const list = unwrapList(data);
                 if (!cancelled) setProposals(list);
             } catch (error) {
                 console.error("Failed to fetch proposals:", error);
+            } finally {
+                if (!cancelled) setLoading(false);
             }
         })();
 
@@ -98,5 +102,5 @@ export function useProposals(tenantId) {
         }
     }, [tenantId]);
 
-    return { proposals, saving, addProposal };
+    return { proposals, loading, saving, addProposal };
 }

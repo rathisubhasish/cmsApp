@@ -5,6 +5,7 @@ export function useClients(tenantId) {
     const [clients, setClients] = useState([]);
     const [saving, setSaving] = useState(false);
     const [deletingId, setDeletingId] = useState(null);
+    const [loading, setLoading] = useState(!!tenantId);
 
     useEffect(() => {
         if (!tenantId) return;
@@ -12,12 +13,15 @@ export function useClients(tenantId) {
         let cancelled = false;
 
         (async () => {
+            setLoading(true);
             try {
                 const { data } = await get(`/tenant/client`);
                 const list = Array.isArray(data) ? data : data?.data ?? data?.content ?? [];
                 if (!cancelled) setClients(list);
             } catch (error) {
                 console.error("Failed to fetch clients:", error);
+            } finally {
+                if (!cancelled) setLoading(false);
             }
         })();
 
@@ -70,5 +74,5 @@ export function useClients(tenantId) {
         }
     }, []);
 
-    return { clients, saving, addClient, updateClient, deleteClient, deletingId };
+    return { clients, loading, saving, addClient, updateClient, deleteClient, deletingId };
 }

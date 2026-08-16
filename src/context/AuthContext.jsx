@@ -7,8 +7,12 @@ const STORAGE_KEY = "cmsclientdashboard.auth.user";
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
-    const result = localStorage.getItem(STORAGE_KEY);
-    return JSON.parse(result);
+    try {
+      return JSON.parse(localStorage.getItem(STORAGE_KEY));
+    } catch {
+      localStorage.removeItem(STORAGE_KEY);
+      return null;
+    }
   });
 
   const login = useCallback(async (loginEmail, loginPassword) => {
@@ -18,16 +22,22 @@ export function AuthProvider({ children }) {
         password: loginPassword,
       });
 
-      if (data.token) {
-        setToken(data.token);
+      const payload = data?.data ?? data;
+
+      if (!payload?.token || !payload?.user) {
+        return {
+          success: false,
+          error: new Error(payload?.message || data?.message || "Login failed"),
+        };
       }
 
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(data.user));
-      setUser(data.user);
+      setToken(payload.token);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(payload.user));
+      setUser(payload.user);
 
       return {
         success: true,
-        data,
+        data: payload,
       };
     } catch (error) {
       console.error("Login failed:", error);

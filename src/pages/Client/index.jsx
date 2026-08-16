@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { LuSearch, LuPlus, LuLayoutGrid, LuTable, LuEye, LuPencil, LuTrash2, LuEllipsisVertical } from "react-icons/lu";
 import Button from "../../common/Button/Button";
+import Loader from "../../common/Loader/Loader";
 import Modal from "../../Modal";
 import { useAuth } from "../../context/AuthContext";
 import { useClients } from "../../hooks/useClients";
@@ -105,7 +106,7 @@ export default function Client() {
     const navigate = useNavigate();
     const { user } = useAuth();
     const tenantId = user?.tenantId;
-    const { clients, saving, addClient, updateClient, deleteClient, deletingId } = useClients(tenantId);
+    const { clients, loading, saving, addClient, updateClient, deleteClient, deletingId } = useClients(tenantId);
 
     const [search, setSearch] = useState("");
     const [viewMode, setViewMode] = useState("table");
@@ -186,7 +187,11 @@ export default function Client() {
                 </div>
             </div>
 
-            {viewMode === "table" ? (
+            {loading ? (
+                <div className="mt-6 rounded-xl border border-border">
+                    <Loader label="Loading clients..." />
+                </div>
+            ) : viewMode === "table" ? (
                 <div className="mt-6 overflow-x-auto rounded-xl border border-border">
                     <table className="w-full min-w-[900px] text-left text-sm">
                         <thead>
@@ -225,6 +230,13 @@ export default function Client() {
                                     </td>
                                 </tr>
                             ))}
+                            {filteredClients.length === 0 && (
+                                <tr>
+                                    <td colSpan={COLUMNS.length} className="px-4 py-6 text-center text-sm text-text-secondary">
+                                        No clients found
+                                    </td>
+                                </tr>
+                            )}
                         </tbody>
                     </table>
                 </div>

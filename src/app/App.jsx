@@ -8,6 +8,7 @@ import Client from "../pages/Client"
 import ClientDetail from "../pages/ClientDetail"
 import Proposal from "../pages/Proposal"
 import Contract from "../pages/Contract"
+import ContractDetail from "../pages/ContractDetail"
 import ProposalDiscussion from "../pages/ProposalDiscussion"
 import UploadDocument from "../pages/UploadDocument"
 import Settings from "../pages/Settings"
@@ -28,6 +29,7 @@ function App() {
                 <Route path="client/:clientId" element={<ClientDetail />} />
                 <Route path="proposal" element={<Proposal />} />
                 <Route path="contract" element={<Contract />} />
+                <Route path="contract/:id" element={<ContractDetail />} />
                 <Route path="proposal-discussion/:id" element={<ProposalDiscussion />} />
                 <Route path="upload-document" element={<UploadDocument />} />
                 <Route path="settings" element={<Settings />} />
