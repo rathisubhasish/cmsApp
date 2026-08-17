@@ -87,7 +87,7 @@ export function useProposals(tenantId) {
             return true;
         } catch (error) {
             console.error("Failed to create proposal:", error);
-            return false;
+            return null;
         } finally {
             setSaving(false);
         }

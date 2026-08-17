@@ -1,4 +1,4 @@
-import { BrowserRouter, Route, Routes, Navigate } from 'react-router-dom'
+import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import '../App.css'
 import { AuthProvider } from '../context/AuthContext'
 import { ClientProvider } from '../context/ClientContext'
@@ -7,6 +7,8 @@ import Home from "../pages/Home"
 import Client from "../pages/Client"
 import ClientDetail from "../pages/ClientDetail"
 import Proposal from "../pages/Proposal"
+import CreateProposal from "../pages/Proposal/Create"
+import ProposalBuilder from "../pages/Proposal/Builder"
 import Contract from "../pages/Contract"
 import ContractDetail from "../pages/ContractDetail"
 import ProposalDiscussion from "../pages/ProposalDiscussion"
@@ -28,6 +30,8 @@ function App() {
                 <Route path="client" element={<Client />} />
                 <Route path="client/:clientId" element={<ClientDetail />} />
                 <Route path="proposal" element={<Proposal />} />
+                <Route path="proposal/create" element={<CreateProposal />} />
+                <Route path="proposal/:id" element={<ProposalBuilder />} />
                 <Route path="contract" element={<Contract />} />
                 <Route path="contract/:id" element={<ContractDetail />} />
                 <Route path="proposal-discussion/:id" element={<ProposalDiscussion />} />
