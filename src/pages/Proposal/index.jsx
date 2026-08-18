@@ -4,9 +4,10 @@ import { LuPlus } from "react-icons/lu";
 import InlineTab from "../../common/InlineTab/InlineTab";
 import Button from "../../common/Button/Button";
 import Loader from "../../common/Loader/Loader";
-import Modal from "../../Modal";
 import { useAuth } from "../../context/AuthContext";
 import { useProposals } from "../../hooks/useProposals";
+import { formatDate } from "../../services/utility";
+import AddProposalModal from "./AddProposalModal";
 
 const STATUS_TABS = [
     { value: "DRAFT", label: "Draft" },
@@ -15,21 +16,6 @@ const STATUS_TABS = [
 ];
 
 const COLUMNS = ["Proposal No", "Title", "Client", "Status", "Start Date"];
-
-const formatDate = (value) => {
-    if (!value) return "-";
-    const date = new Date(value);
-    return Number.isNaN(date.getTime())
-        ? "-"
-        : date.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
-};
-
-const FORM = {
-    title: "",
-    clientName: "",
-    amount: "",
-    description: "",
-};
 
 export default function Proposal() {
     const navigate = useNavigate();
@@ -40,7 +26,6 @@ export default function Proposal() {
 
     const [status, setStatus] = useState(STATUS_TABS[0].value);
     const [proposalModal, setProposalModal] = useState(false);
-    const [proposalForm, setProposalForm] = useState(FORM);
 
     const byStatus = (value) =>
         proposals.filter((proposal) => (proposal.status || "").toUpperCase() === value);
@@ -53,20 +38,6 @@ export default function Proposal() {
         onClick: () => setStatus(value),
     }));
 
-    const handleFieldChange = (field) => (e) => {
-        setProposalForm((prev) => ({ ...prev, [field]: e.target.value }));
-    };
-
-    const closeProposalModal = () => {
-        setProposalModal(false);
-        setProposalForm(FORM);
-    };
-
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        const success = await addProposal({ ...proposalForm, status: "DRAFT" });
-        if (success) closeProposalModal();
-    };
 
     return (
         <div>
@@ -137,65 +108,13 @@ export default function Proposal() {
             </div>
 
             {proposalModal && (
-                <Modal title="Add Proposal" onClose={closeProposalModal} width={560}>
-                    <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-4">
-                        <div className="col-span-2">
-                            <label className="mb-1 block text-sm font-medium text-text-primary">Title</label>
-                            <input
-                                type="text"
-                                required
-                                value={proposalForm.title}
-                                onChange={handleFieldChange("title")}
-                                className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary outline-none focus:border-primary"
-                            />
-                        </div>
-
-                        <div>
-                            <label className="mb-1 block text-sm font-medium text-text-primary">Client Name</label>
-                            <input
-                                type="text"
-                                required
-                                value={proposalForm.clientName}
-                                onChange={handleFieldChange("clientName")}
-                                className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary outline-none focus:border-primary"
-                            />
-                        </div>
-
-                        <div>
-                            <label className="mb-1 block text-sm font-medium text-text-primary">Amount</label>
-                            <input
-                                type="number"
-                                required
-                                value={proposalForm.amount}
-                                onChange={handleFieldChange("amount")}
-                                className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary outline-none focus:border-primary"
-                            />
-                        </div>
-
-                        <div className="col-span-2">
-                            <label className="mb-1 block text-sm font-medium text-text-primary">Description</label>
-                            <textarea
-                                value={proposalForm.description}
-                                onChange={handleFieldChange("description")}
-                                rows={3}
-                                className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary outline-none focus:border-primary"
-                            />
-                        </div>
-
-                        <div className="col-span-2 mt-2 flex justify-end gap-3">
-                            <button
-                                type="button"
-                                onClick={closeProposalModal}
-                                className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-text-primary hover:bg-primary-light"
-                            >
-                                Cancel
-                            </button>
-                            <Button type="submit" className="!w-auto px-4" loading={saving}>
-                                Save
-                            </Button>
-                        </div>
-                    </form>
-                </Modal>
+                <AddProposalModal
+                    tenantId={tenantId}
+                    createdBy={user?.id}
+                    saving={saving}
+                    onClose={() => setProposalModal(false)}
+                    onSubmit={addProposal}
+                />
             )}
         </div>
     );

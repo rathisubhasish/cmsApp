@@ -38,3 +38,22 @@ export const formatDate = (value, withTime = false) => {
     ...(withTime ? { hour: "2-digit", minute: "2-digit" } : {}),
   });
 };
+
+export const BILLING_OPTIONS = ["MONTHLY", "HALF_YEARLY", "YEARLY", "ONE_TIME"];
+
+// datetime-local needs a local "YYYY-MM-DDTHH:mm" string, not an ISO/UTC one.
+export const toDateTimeLocal = (value) => {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(
+    date.getHours()
+  )}:${pad(date.getMinutes())}`;
+};
+
+export const toIso = (value) => {
+  if (!value) return undefined;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
+};
