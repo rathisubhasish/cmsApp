@@ -7,7 +7,6 @@ import Loader from "../../common/Loader/Loader";
 import Modal from "../../Modal";
 import { useAuth } from "../../context/AuthContext";
 import { useProposals } from "../../hooks/useProposals";
-import { useClients } from "../../hooks/useClients";
 
 const STATUS_TABS = [
     { value: "DRAFT", label: "Draft" },
@@ -79,7 +78,7 @@ export default function Proposal() {
 
                 <Button
                     className="!w-auto flex items-center gap-2 !py-2 px-4"
-                    onClick={() => navigate("/proposal/create")}
+                    onClick={() => setProposalModal(true)}
                 >
                     <LuPlus className="h-4 w-4" />
                     Add Proposal
@@ -136,6 +135,68 @@ export default function Proposal() {
                     </tbody>
                 </table>
             </div>
+
+            {proposalModal && (
+                <Modal title="Add Proposal" onClose={closeProposalModal} width={560}>
+                    <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-4">
+                        <div className="col-span-2">
+                            <label className="mb-1 block text-sm font-medium text-text-primary">Title</label>
+                            <input
+                                type="text"
+                                required
+                                value={proposalForm.title}
+                                onChange={handleFieldChange("title")}
+                                className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary outline-none focus:border-primary"
+                            />
+                        </div>
+
+                        <div>
+                            <label className="mb-1 block text-sm font-medium text-text-primary">Client Name</label>
+                            <input
+                                type="text"
+                                required
+                                value={proposalForm.clientName}
+                                onChange={handleFieldChange("clientName")}
+                                className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary outline-none focus:border-primary"
+                            />
+                        </div>
+
+                        <div>
+                            <label className="mb-1 block text-sm font-medium text-text-primary">Amount</label>
+                            <input
+                                type="number"
+                                required
+                                value={proposalForm.amount}
+                                onChange={handleFieldChange("amount")}
+                                className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary outline-none focus:border-primary"
+                            />
+                        </div>
+
+                        <div className="col-span-2">
+                            <label className="mb-1 block text-sm font-medium text-text-primary">Description</label>
+                            <textarea
+                                value={proposalForm.description}
+                                onChange={handleFieldChange("description")}
+                                rows={3}
+                                className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary outline-none focus:border-primary"
+                            />
+                        </div>
+
+                        <div className="col-span-2 mt-2 flex justify-end gap-3">
+                            <button
+                                type="button"
+                                onClick={closeProposalModal}
+                                className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-text-primary hover:bg-primary-light"
+                            >
+                                Cancel
+                            </button>
+                            <Button type="submit" className="!w-auto px-4" loading={saving}>
+                                Save
+                            </Button>
+                        </div>
+                    </form>
+                </Modal>
+            )}
         </div>
     );
 }
