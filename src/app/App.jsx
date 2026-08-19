@@ -3,6 +3,7 @@ import '../App.css'
 import { AuthProvider } from '../context/AuthContext'
 import { ClientProvider } from '../context/ClientContext'
 import Login from "../pages/Login/login"
+import ForgotPassword from "../pages/ForgotPassword"
 import Home from "../pages/Home"
 import Client from "../pages/Client"
 import ClientDetail from "../pages/ClientDetail"
@@ -23,6 +24,7 @@ function App() {
         <ClientProvider>
           <Routes>
             <Route path="/login" element={<Login />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/" element={<ProtectedRoute />}>
               <Route element={<HomeLayout />}>
                 <Route index element={<Home />} />
