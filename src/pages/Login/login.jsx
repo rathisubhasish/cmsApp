@@ -1,6 +1,6 @@
 import { LuBox } from "react-icons/lu";
 import { useAuth } from "../../context/AuthContext";
-import { useNavigate, Navigate } from "react-router-dom";
+import { useNavigate, Navigate, Link } from "react-router-dom";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -84,7 +84,12 @@ const Login = () => {
                 {...register("password")}
               />
 
-              <span className="" />
+              <Link
+                to="/forgot-password"
+                className="self-end text-sm font-medium text-primary hover:underline"
+              >
+                Forgot password?
+              </Link>
 
               <Button type="submit" variant="primary" loading={isSubmitting}
                       disabled={isSubmitting}>

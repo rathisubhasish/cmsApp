@@ -130,12 +130,10 @@ export default function Sidebar({ isMobileOpen, setIsMobileOpen }) {
         </nav>{" "}
         <Button
           variant="secondary"
-          className="w-full !text-primary !border-primary mb-4"
+          className="mb-4 flex w-full items-center justify-center gap-2 !border-primary !text-white"
           onClick={handleLogout}
         >
-          <span>
-            <LuLogOut size={16} />{" "}
-          </span>
+          <LuLogOut size={16} />
           Logout
         </Button>
       </aside>{" "}
