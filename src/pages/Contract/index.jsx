@@ -8,6 +8,13 @@ import { humanize } from "../../services/utility";
 
 const COLUMNS = ["Contract", "Proposal No", "Client", "Contract Type", "Billing Type", "Status"];
 
+// An approval-stage tab belongs to the role that acts on it; other roles don't see it.
+const APPROVAL_ROLE_BY_STATUS = {
+    MANAGER_APPROVAL_PENDING: "MANAGER",
+    FINANCE_APPROVAL_PENDING: "FINANCE",
+    LEGAL_APPROVAL_PENDING: "LEGAL",
+};
+
 export default function Contract() {
     const { user } = useAuth();
     const tenantId = user?.tenantId;
@@ -17,10 +24,24 @@ export default function Contract() {
     const [status, setStatus] = useState("ALL");
     const [contractType, setContractType] = useState("All");
 
-    const statuses = useMemo(
-        () => [...new Set(contracts.map((contract) => contract.status).filter(Boolean))],
-        [contracts]
-    );
+    const role = (user?.role || "").toUpperCase();
+
+    const statuses = useMemo(() => {
+        const fromData = [...new Set(contracts.map((contract) => contract.status).filter(Boolean))].filter(
+            (s) => {
+                const owner = APPROVAL_ROLE_BY_STATUS[(s || "").toUpperCase()];
+                return !owner || owner === role;
+            }
+        );
+        // The role's own approval queue is always a tab, even with nothing in it.
+        const ownStage = Object.keys(APPROVAL_ROLE_BY_STATUS).find(
+            (s) => APPROVAL_ROLE_BY_STATUS[s] === role
+        );
+        if (ownStage && !fromData.some((s) => (s || "").toUpperCase() === ownStage)) {
+            fromData.push(ownStage);
+        }
+        return fromData;
+    }, [contracts, role]);
 
     const contractTypes = useMemo(
         () => ["All", ...new Set(contracts.map((contract) => contract.contractType).filter(Boolean))],

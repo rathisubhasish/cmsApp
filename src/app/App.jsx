@@ -8,6 +8,7 @@ import Client from "../pages/Client"
 import ClientDetail from "../pages/ClientDetail"
 import Proposal from "../pages/Proposal"
 import Contract from "../pages/Contract"
+import ESign from "../pages/ESign"
 import ContractDetail from "../pages/ContractDetail"
 import ProposalDiscussion from "../pages/ProposalDiscussion"
 import UploadDocument from "../pages/UploadDocument"
@@ -31,6 +32,8 @@ function App() {
                 <Route path="contract" element={<Contract />} />
                 <Route path="contract/:id" element={<ContractDetail />} />
                 <Route path="proposal-discussion/:id" element={<ProposalDiscussion />} />
+                <Route path="e-sign" element={<ESign />} />
+                <Route path="e-sign/:id" element={<ContractDetail />} />
                 <Route path="upload-document" element={<UploadDocument />} />
                 <Route path="settings" element={<Settings />} />
               </Route>

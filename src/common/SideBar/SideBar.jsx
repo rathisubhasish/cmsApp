@@ -9,6 +9,7 @@ import {
   LuX,
   LuBox,
   LuUpload,
+  LuSignature,
 } from "react-icons/lu";
 import { useAuth } from "../../context/AuthContext.jsx";
 import Button from "../Button/Button.jsx";
@@ -37,6 +38,12 @@ const NAV_ITEMS = [
     to: "contract",
     label: "Contract",
     icon: LuBuilding2,
+    end: false,
+  },
+  {
+    to: "e-sign",
+    label: "E-Sign",
+    icon: LuSignature,
     end: false,
   },
   {

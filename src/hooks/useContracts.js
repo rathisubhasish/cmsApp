@@ -49,7 +49,7 @@ export function useContract(id) {
         }
     }, [id, fetchContract]);
 
-    return { contract, loading, acting, runAction };
+    return { contract, loading, acting, runAction, refresh: fetchContract };
 }
 
 export function useCreateContract() {
@@ -71,9 +71,31 @@ export function useCreateContract() {
     return { saving, createContract };
 }
 
+export function useESign() {
+    const [signing, setSigning] = useState(false);
+
+    const signContract = useCallback(async (id, payload) => {
+        setSigning(true);
+        try {
+            await post(`/tenant/contract/${id}/e-sign`, payload);
+            return true;
+        } catch (error) {
+            console.error("Failed to e-sign contract:", error);
+            return false;
+        } finally {
+            setSigning(false);
+        }
+    }, []);
+
+    return { signing, signContract };
+}
+
 export function useContracts(tenantId) {
     const [contracts, setContracts] = useState([]);
     const [loading, setLoading] = useState(!!tenantId);
+    const [reloadKey, setReloadKey] = useState(0);
+
+    const reload = useCallback(() => setReloadKey((k) => k + 1), []);
 
     useEffect(() => {
         if (!tenantId) return;
@@ -96,7 +118,7 @@ export function useContracts(tenantId) {
         return () => {
             cancelled = true;
         };
-    }, [tenantId]);
+    }, [tenantId, reloadKey]);
 
-    return { contracts, loading };
+    return { contracts, loading, reload };
 }

@@ -1,17 +1,22 @@
 import { useNavigate, useParams } from "react-router-dom";
-import { LuArrowLeft, LuCalendar, LuExternalLink } from "react-icons/lu";
+import { useState } from "react";
+import { LuArrowLeft, LuCalendar, LuExternalLink, LuSignature } from "react-icons/lu";
 import Button from "../../common/Button/Button";
 import Loader from "../../common/Loader/Loader";
 import Timeline, { TimelineItem } from "../../common/Timeline/Timeline";
 import { useAuth } from "../../context/AuthContext";
-import { useContract, contractId } from "../../hooks/useContracts";
+import { useContract, useESign, contractId } from "../../hooks/useContracts";
+import ESignModal from "../ESign/ESignModal";
 import { formatAmount, formatDate, humanize } from "../../services/utility";
 
-// Each pending status is actionable by exactly one role, per the backend Role enum.
-const APPROVAL_ROLE_BY_STATUS = {
-    MANAGER_APPROVAL_PENDING: "MANAGER",
-    FINANCE_APPROVAL_PENDING: "FINANCE",
-    LEGAL_APPROVAL_PENDING: "LEGAL",
+// Each pending status is actionable by exactly one role, per the backend Role enum,
+// and each role approves through its own endpoint.
+const PENDING_SIGNATURE = "ESIGN_PENDING";
+
+const APPROVAL_STAGE_BY_STATUS = {
+    MANAGER_APPROVAL_PENDING: { role: "MANAGER", action: "manager-approve" },
+    FINANCE_APPROVAL_PENDING: { role: "FINANCE", action: "finance-approve" },
+    LEGAL_APPROVAL_PENDING: { role: "LEGAL", action: "legal-approve" },
 };
 
 const TENANT_FIELDS = [
@@ -38,7 +43,9 @@ export default function ContractDetail() {
     const navigate = useNavigate();
     const { id } = useParams();
     const { user } = useAuth();
-    const { contract, loading, acting, runAction } = useContract(id);
+    const { contract, loading, acting, runAction, refresh } = useContract(id);
+    const { signing, signContract } = useESign();
+    const [signModal, setSignModal] = useState(false);
 
     const proposal = contract?.proposal;
     const tenant = contract?.tenant ?? proposal?.tenant;
@@ -52,10 +59,9 @@ export default function ContractDetail() {
     const timeline = [...(contract?.timeLine ?? [])].sort(
         (a, b) => new Date(a.actionAt) - new Date(b.actionAt)
     );
-    const canAct =
-        !!contract &&
-        !!user?.role &&
-        APPROVAL_ROLE_BY_STATUS[(contract.status || "").toUpperCase()] === user.role.toUpperCase();
+    const stage = APPROVAL_STAGE_BY_STATUS[(contract?.status || "").toUpperCase()];
+    const canAct = !!stage && !!user?.role && stage.role === user.role.toUpperCase();
+    const canSign = (contract?.status || "").toUpperCase() === PENDING_SIGNATURE;
 
     const handleRevert = async () => {
         if (!window.confirm("Revert this contract back to the proposal? The contract will leave approval.")) {
@@ -85,6 +91,17 @@ export default function ContractDetail() {
                     </p>
                 </div>
 
+                {canSign && (
+                    <button
+                        type="button"
+                        onClick={() => setSignModal(true)}
+                        className="flex items-center gap-1.5 rounded-lg border border-border px-4 py-2 text-sm font-medium text-text-primary hover:bg-primary-light"
+                    >
+                        <LuSignature className="h-4 w-4" />
+                        E-Sign
+                    </button>
+                )}
+
                 {canAct && (
                     <div className="flex items-center gap-3">
                         <button
@@ -97,9 +114,9 @@ export default function ContractDetail() {
                         </button>
                         <Button
                             className="!w-auto px-4"
-                            loading={acting === "approve"}
+                            loading={acting === stage.action}
                             disabled={!!acting}
-                            onClick={() => runAction("approve")}
+                            onClick={() => runAction(stage.action)}
                         >
                             Approve
                         </Button>
@@ -358,6 +375,22 @@ export default function ContractDetail() {
                         </div>
                     </div>
                 </div>
+            )}
+
+            {signModal && (
+                <ESignModal
+                    contract={contract}
+                    signing={signing}
+                    onClose={() => setSignModal(false)}
+                    onSubmit={async (payload) => {
+                        const success = await signContract(id, payload);
+                        if (success) {
+                            setSignModal(false);
+                            await refresh();
+                        }
+                        return success;
+                    }}
+                />
             )}
         </div>
     );
