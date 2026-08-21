@@ -12,7 +12,7 @@ export default function HomeLayout() {
                 isMobileOpen={isMobileOpen}
             />
 
-            <main className="min-h-[200vh] min-w-0 px-6 py-6 lg:ml-[240px]">
+            <main className="min-w-0 px-6 py-6 lg:ml-[240px]">
                 <Outlet />
             </main>
         </div>
