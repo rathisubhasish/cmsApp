@@ -6,11 +6,15 @@ export default function HomeLayout() {
     const [isMobileOpen, setIsMobileOpen] = useState(false);
 
     return (
-        <div className="flex min-h-svh bg-white overflow-x-hidden">
-            <Sidebar setIsMobileOpen={setIsMobileOpen} isMobileOpen={isMobileOpen} />
-            <main className="min-w-0 flex-1 px-6 py-6">
+        <div className="min-h-svh bg-white overflow-x-hidden">
+            <Sidebar
+                setIsMobileOpen={setIsMobileOpen}
+                isMobileOpen={isMobileOpen}
+            />
+
+            <main className="min-h-[200vh] min-w-0 px-6 py-6 lg:ml-[240px]">
                 <Outlet />
             </main>
         </div>
-    )
+    );
 }
